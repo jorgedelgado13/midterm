@@ -1,4 +1,5 @@
 ---
+<<<<<<< HEAD
 title: "PRIMER REPORTE EN QUARTO"
 author: "Yachay Tech University" 
 date: "2025-09-26"
@@ -98,3 +99,115 @@ alt.Chart(cars).mark_line(point=True).encode(
 ).interactive()
 ```
 
+=======
+title: "EDA + Regresión (LinearRegression)"
+format: html
+---
+
+# Carga y exploración inicial
+
+```{python}
+import pandas as pd
+df = pd.read_csv("data/1.-mpceip_deeco_exportaciones_eeuu_2024_01.csv", encoding="latin1")
+df.head()
+```
+
+```{python}
+df.info()
+df.describe(include="all", datetime_is_numeric=True)
+```
+
+# División Train/Test y Pipeline
+
+```{python}
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+target_col = "Suma de FOB (miles)"
+
+num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+cat_cols = [c for c in df.columns if c not in num_cols]
+
+feature_cols_num = [c for c in num_cols if c != target_col]
+feature_cols_cat = cat_cols
+
+X = df[feature_cols_num + feature_cols_cat]
+y = df[target_col]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+num_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler())
+])
+
+cat_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False, max_categories=50))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", num_transformer, feature_cols_num),
+        ("cat", cat_transformer, feature_cols_cat)
+    ]
+)
+
+model = Pipeline(steps=[("prep", preprocessor), ("reg", LinearRegression())])
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+mse, r2
+```
+
+# Visualizaciones
+
+## Reales vs Predichos
+```{python}
+plt.figure()
+plt.scatter(y_test, y_pred, alpha=0.4)
+lims = [min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())]
+plt.plot(lims, lims)
+plt.xlabel("Real"); plt.ylabel("Predicho")
+plt.title("Valores reales vs. predichos")
+plt.show()
+```
+
+## Curva de aprendizaje (muestra)
+```{python}
+from sklearn.model_selection import learning_curve
+
+sample_size = min(10000, len(X))
+X_sample = X.sample(sample_size, random_state=42)
+y_sample = y.loc[X_sample.index]
+
+train_sizes, train_scores, test_scores = learning_curve(
+    model, X_sample, y_sample, cv=3, scoring="r2",
+    train_sizes=np.linspace(0.1, 1.0, 5)
+)
+
+plt.figure()
+plt.plot(train_sizes, train_scores.mean(axis=1), marker="o", label="Entrenamiento")
+plt.plot(train_sizes, test_scores.mean(axis=1), marker="o", label="Validación CV")
+plt.xlabel("Tamaño de entrenamiento (muestra)")
+plt.ylabel("R² promedio (CV)")
+plt.title("Curva de aprendizaje (muestra)")
+plt.legend()
+plt.show()
+```
+
+# Interpretación
+- Reporta **MSE** y **R²** y compáralos con la escala del objetivo.
+- Observa si hay **sobreajuste** en la curva de aprendizaje.
+- Si el desempeño no es suficiente, prueba **regularización** (Ridge/Lasso), **transformaciones** (log del objetivo), o **nuevas variables** (interacciones, efectos de mes/año).
+>>>>>>> 3d695966f69f2fdbfa9575a0ac661d1fd70d29fa
